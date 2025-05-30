@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upcoming Football Matches</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #f0f8ff;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      color: #1e3a8a;
+    }
+
+    .filters {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .filters input,
+    .filters select {
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1em;
+    }
+
+    .matches-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .match-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+    }
+
+    .match-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .teams {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .teams img {
+      height: 20px;
+    }
+
+    .date {
+      color: #4b5563;
+      margin-top: 6px;
+    }
+
+    .details {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+
+<h1>⚽ Upcoming Football Matches</h1>
+
+<div class="filters">
+  <input type="text" id="searchTeam" placeholder="Search by team name">
+  <input type="date" id="filterDate">
+  <select id="dateRange">
+    <option value="">All Dates</option>
+    <option value="today">Today</option>
+    <option value="week">This Week</option>
+  </select>
+  <select id="competitionFilter">
+    <option value="">All Competitions</option>
+  </select>
+</div>
+
+<div class="matches-container" id="matches">Loading...</div>
+
+<script>
+  let allMatches = [];
+
+  function renderMatches(matches) {
+    const container = document.getElementById('matches');
+    container.innerHTML = '';
+
+    if (matches.length === 0) {
+      container.innerHTML = '<p>No matches found.</p>';
+      return;
+    }
+
+    matches.forEach(match => {
+      const card = document.createElement('div');
+      card.className = 'match-card';
+      card.innerHTML = `
+        <div class="teams">
+          <img src="https://countryflagsapi.com/png/${match.team1.split(' ').pop()}">
+          ${match.team1} vs ${match.team2}
+          <img src="https://countryflagsapi.com/png/${match.team2.split(' ').pop()}">
+        </div>
+        <div class="date">${new Date(match.date).toLocaleString()}</div>
+        <div class="details">
+          Competition: ${match.competition}<br>
+          Stage: ${match.stage}<br>
+          Matchday: ${match.matchday}<br>
+          Venue: ${match.venue}<br>
+          Referee: ${match.referee}<br>
+          Status: ${match.status}
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function filterMatches() {
+    const searchTeam = document.getElementById('searchTeam').value.toLowerCase();
+    const filterDate = document.getElementById('filterDate').value;
+    const competition = document.getElementById('competitionFilter').value;
+    const dateRange = document.getElementById('dateRange').value;
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const weekEnd = new Date();
+    weekEnd.setDate(now.getDate() + 7);
+    const weekEndStr = weekEnd.toISOString().slice(0, 10);
+
+    const filtered = allMatches.filter(match => {
+      const teamMatch = match.team1.toLowerCase().includes(searchTeam) || match.team2.toLowerCase().includes(searchTeam);
+      const dateOnly = match.date.slice(0, 10);
+      const dateMatch =
+        filterDate ? dateOnly === filterDate :
+        dateRange === 'today' ? dateOnly === todayStr :
+        dateRange === 'week' ? (dateOnly >= todayStr && dateOnly <= weekEndStr) :
+        true;
+      const compMatch = competition ? match.competition === competition : true;
+
+      return teamMatch && dateMatch && compMatch;
+    });
+
+    renderMatches(filtered);
+  }
+
+  function populateCompetitions(matches) {
+    const competitionSet = new Set(matches.map(m => m.competition));
+    const select = document.getElementById('competitionFilter');
+    select.innerHTML = '<option value="">All Competitions</option>';
+    competitionSet.forEach(comp => {
+      const option = document.createElement('option');
+      option.value = comp;
+      option.textContent = comp;
+      select.appendChild(option);
+    });
+  }
+
+  async function fetchMatches() {
+    const response = await fetch('http://localhost:3001/api/matches');
+    const data = await response.json();
+    allMatches = data;
+    populateCompetitions(allMatches);
+    renderMatches(allMatches);
+  }
+
+  fetchMatches();
+
+  document.getElementById('searchTeam').addEventListener('input', filterMatches);
+  document.getElementById('filterDate').addEventListener('change', filterMatches);
+  document.getElementById('competitionFilter').addEventListener('change', filterMatches);
+  document.getElementById('dateRange').addEventListener('change', filterMatches);
+
+  // Auto-refresh every 5 minutes
+  setInterval(fetchMatches, 300000);
+</script>
+
+</body>
+</html>
